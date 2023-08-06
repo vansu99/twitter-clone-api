@@ -1,9 +1,9 @@
 {
-  "name": "twitter clone api",
+  "name": "elon-ma-twitter",
   "version": "1.0.0",
   "main": "index.js",
-  "repository": "https://github.com/vansu99/twitter-clone-api",
-  "author": "Evan",
+  "repository": "https://github.com/TranDangKhoi/elon-ma-twitter.git",
+  "author": "TranDangKhoi <baits16@gmail.com>",
   "license": "MIT",
   "scripts": {
     "dev": "npx nodemon",

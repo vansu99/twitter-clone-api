@@ -1,5 +1,6 @@
 import { Request } from "express";
-import { checkSchema } from "express-validator";
+import { check, checkSchema } from "express-validator";
+import { ObjectId } from "mongodb";
 import { HttpStatusCode } from "~/constants/httpStatusCode.enum";
 import { ValidationMessage } from "~/constants/messages.enum";
 import { ErrorWithStatus } from "~/models/Errors";
@@ -246,4 +247,77 @@ export const emailVerifyTokenValidator = validate(
       },
     },
   }),
+);
+
+export const forgotPasswordValidator = validate(
+  checkSchema(
+    {
+      email: {
+        isEmail: {
+          errorMessage: ValidationMessage.EMAIL_IS_INVALID,
+        },
+        notEmpty: {
+          errorMessage: ValidationMessage.EMAIL_IS_REQUIRED,
+        },
+        trim: true,
+        custom: {
+          options: async (values) => {
+            const emailExisted = await usersServices.checkEmailExist(values);
+            if (!emailExisted) {
+              throw new Error(ValidationMessage.EMAIL_DOES_NOT_EXIST);
+            }
+            return true;
+          },
+        },
+      },
+    },
+    ["body"],
+  ),
+);
+
+export const verifyForgotPasswordTokenValidator = validate(
+  checkSchema(
+    {
+      forgot_password_token: {
+        trim: true,
+        custom: {
+          options: async (value, { req }) => {
+            if (!value) {
+              throw new ErrorWithStatus({
+                message: ValidationMessage.FORGOT_PASSWORD_TOKEN_IS_REQUIRED,
+                status: HttpStatusCode.UNAUTHORIZED,
+              });
+            }
+            try {
+              const decoded_forgot_password_token = await verifyToken({
+                token: value,
+                secretOrPublicKey: process.env.JWT_SECRET_FORGOT_PASSWORD_TOKEN,
+              });
+              const foundUser = await databaseService.users.findOne({
+                _id: new ObjectId(decoded_forgot_password_token.user_id),
+              });
+              if (!foundUser) {
+                throw new ErrorWithStatus({
+                  message: ValidationMessage.USER_NOT_FOUND,
+                  status: HttpStatusCode.UNAUTHORIZED,
+                });
+              }
+              if (foundUser.forgot_password_token !== value) {
+                throw new ErrorWithStatus({
+                  message: ValidationMessage.FORGOT_PASSWORD_TOKEN_INVALID,
+                  status: HttpStatusCode.UNAUTHORIZED,
+                });
+              }
+            } catch (err) {
+              throw new ErrorWithStatus({
+                message: ValidationMessage.FORGOT_PASSWORD_TOKEN_INVALID,
+                status: HttpStatusCode.UNAUTHORIZED,
+              });
+            }
+          },
+        },
+      },
+    },
+    ["body"],
+  ),
 );
