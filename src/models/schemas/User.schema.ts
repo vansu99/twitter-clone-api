@@ -28,8 +28,8 @@ export default class User {
   password: string;
   created_at: Date;
   updated_at: Date;
-  email_verify_token: string; // jwt hoặc '' nếu đã xác thực email
-  forgot_password_token: string; // jwt hoặc '' nếu đã xác thực email
+  email_verify_token: string;
+  forgot_password_token: string;
   verify: UserVerifyStatus;
 
   bio: string;

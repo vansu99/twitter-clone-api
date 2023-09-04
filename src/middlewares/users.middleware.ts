@@ -1,14 +1,16 @@
-import { Request } from "express";
-import { check, checkSchema } from "express-validator";
-import { ObjectId } from "mongodb";
-import { HttpStatusCode } from "~/constants/httpStatusCode.enum";
-import { ValidationMessage } from "~/constants/messages.enum";
-import { ErrorWithStatus } from "~/models/Errors";
-import databaseService from "~/services/database.services";
-import usersServices from "~/services/users.services";
-import { hashPassword } from "~/utils/crypto";
-import { verifyToken } from "~/utils/jwt";
-import { validate } from "~/utils/validation";
+import { NextFunction, Request } from 'express';
+import { checkSchema } from 'express-validator';
+import { ObjectId } from 'mongodb';
+import { UserVerifyStatus } from '~/constants/enums';
+import { HttpStatusCode } from '~/constants/httpStatusCode.enum';
+import { ValidationMessage } from '~/constants/messages.enum';
+import { ErrorWithStatus } from '~/models/Errors';
+import { TokenPayload } from '~/models/requests/User.requests';
+import databaseService from '~/services/database.services';
+import usersServices from '~/services/users.services';
+import { hashPassword } from '~/utils/crypto';
+import { verifyToken } from '~/utils/jwt';
+import { validate } from '~/utils/validation';
 
 export const loginValidator = validate(
   checkSchema(
@@ -41,7 +43,10 @@ export const loginValidator = validate(
           errorMessage: ValidationMessage.PASSWORD_IS_REQUIRED,
         },
         trim: true,
-        isLength: { options: { min: 6, max: 50 }, errorMessage: ValidationMessage.PASSWORD_LENGTH_INVALID },
+        isLength: {
+          options: { min: 6, max: 50 },
+          errorMessage: ValidationMessage.PASSWORD_LENGTH_INVALID,
+        },
         isStrongPassword: {
           errorMessage: ValidationMessage.PASSWORD_MUST_BE_STRONG,
           options: {
@@ -54,7 +59,7 @@ export const loginValidator = validate(
         },
       },
     },
-    ["body"],
+    ['body'],
   ),
 );
 
@@ -67,7 +72,10 @@ export const registerValidator = validate(
           errorMessage: ValidationMessage.NAME_IS_REQUIRED,
         },
         trim: true,
-        isLength: { options: { min: 1, max: 100 }, errorMessage: ValidationMessage.NAME_LENGTH_IS_INVALID },
+        isLength: {
+          options: { min: 1, max: 100 },
+          errorMessage: ValidationMessage.NAME_LENGTH_IS_INVALID,
+        },
       },
       email: {
         isEmail: {
@@ -93,7 +101,10 @@ export const registerValidator = validate(
           errorMessage: ValidationMessage.PASSWORD_IS_REQUIRED,
         },
         trim: true,
-        isLength: { options: { min: 6, max: 50 }, errorMessage: ValidationMessage.PASSWORD_LENGTH_INVALID },
+        isLength: {
+          options: { min: 6, max: 50 },
+          errorMessage: ValidationMessage.PASSWORD_LENGTH_INVALID,
+        },
         isStrongPassword: {
           errorMessage: ValidationMessage.PASSWORD_MUST_BE_STRONG,
           options: {
@@ -109,7 +120,10 @@ export const registerValidator = validate(
         isString: true,
         notEmpty: { errorMessage: ValidationMessage.CONFIRM_PASSWORD_IS_REQUIRED },
         trim: true,
-        isLength: { options: { min: 6, max: 50 }, errorMessage: ValidationMessage.CONFIRM_PASSWORD_LENGTH_INVALID },
+        isLength: {
+          options: { min: 6, max: 50 },
+          errorMessage: ValidationMessage.CONFIRM_PASSWORD_LENGTH_INVALID,
+        },
         isStrongPassword: {
           errorMessage: ValidationMessage.CONFIRM_PASSWORD_MUST_BE_STRONG,
           options: {
@@ -129,12 +143,8 @@ export const registerValidator = validate(
           },
         },
       },
-      date_of_birth: {
-        notEmpty: true,
-        isISO8601: { options: { strict: true, strictSeparator: true } },
-      },
     },
-    ["body"],
+    ['body'],
   ),
 );
 
@@ -144,9 +154,9 @@ export const accessTokenValidator = validate(
       authorization: {
         custom: {
           options: async (value, { req }) => {
-            const access_token = (value || "").split(" ")[1];
-            const auth_type = value.split(" ")[0];
-            if (!access_token || auth_type !== "Bearer") {
+            const access_token = (value || '').split(' ')[1];
+            const auth_type = value.split(' ')[0];
+            if (!access_token || auth_type !== 'Bearer') {
               throw new ErrorWithStatus({
                 message: ValidationMessage.ACCESS_TOKEN_INVALID,
                 status: HttpStatusCode.UNAUTHORIZED,
@@ -157,6 +167,8 @@ export const accessTokenValidator = validate(
                 token: access_token,
                 secretOrPublicKey: process.env.JWT_SECRET_ACCESS_TOKEN,
               });
+
+              (req as Request).decoded_authorization = decoded_access_token;
               (req as Request).decoded_access_token = decoded_access_token;
             } catch (err) {
               throw new ErrorWithStatus({
@@ -169,7 +181,7 @@ export const accessTokenValidator = validate(
         },
       },
     },
-    ["headers"],
+    ['headers'],
   ),
 );
 
@@ -188,7 +200,10 @@ export const refreshTokenValidator = validate(
             }
             try {
               const [decoded_refresh_token, found_refresh_token] = await Promise.all([
-                verifyToken({ token: value, secretOrPublicKey: process.env.JWT_SECRET_REFRESH_TOKEN }),
+                verifyToken({
+                  token: value,
+                  secretOrPublicKey: process.env.JWT_SECRET_REFRESH_TOKEN,
+                }),
                 databaseService.refreshTokens.findOne({ token: value }),
               ]);
               if (!found_refresh_token) {
@@ -209,7 +224,7 @@ export const refreshTokenValidator = validate(
         },
       },
     },
-    ["body"],
+    ['body'],
   ),
 );
 
@@ -271,7 +286,7 @@ export const forgotPasswordValidator = validate(
         },
       },
     },
-    ["body"],
+    ['body'],
   ),
 );
 
@@ -318,6 +333,19 @@ export const verifyForgotPasswordTokenValidator = validate(
         },
       },
     },
-    ["body"],
+    ['body'],
   ),
 );
+
+export const verifiedUserValidator = (req: Request, res: Response, next: NextFunction) => {
+  const { verify } = req.decoded_authorization as TokenPayload;
+  if (verify !== UserVerifyStatus.VERIFIED) {
+    next(
+      new ErrorWithStatus({
+        message: 'User not verified',
+        status: HttpStatusCode.FORBIDDEN,
+      }),
+    );
+  }
+  next();
+};
