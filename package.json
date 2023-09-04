@@ -1,9 +1,7 @@
 {
-  "name": "elon-ma-twitter",
+  "name": "rest-api-mock",
   "version": "1.0.0",
   "main": "index.js",
-  "repository": "https://github.com/TranDangKhoi/elon-ma-twitter.git",
-  "author": "TranDangKhoi <baits16@gmail.com>",
   "license": "MIT",
   "scripts": {
     "dev": "npx nodemon",
